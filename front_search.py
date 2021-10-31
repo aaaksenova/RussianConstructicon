@@ -7,11 +7,11 @@ import streamlit as st
 import time
 import os
 
-root = os.path.dirname(os.path.abspath(__file__))
-download_dir = os.path.join(root, 'nltk_data')
-os.chdir(download_dir)
-nltk.data.path.append(download_dir)
-# nltk.download('punkt')
+# root = os.path.dirname(os.path.abspath(__file__))
+# download_dir = os.path.join(root, 'nltk_data')
+# os.chdir(download_dir)
+# nltk.data.path.append(download_dir)
+nltk.download('punkt')
 
 morph = pymorphy2.MorphAnalyzer()
 con = sqlite3.connect('constr.db')
