@@ -1,0 +1,4 @@
+conllu==4.4.1
+nltk==3.6.2
+pymorphy2==0.9.1
+streamlit==1.1.0
