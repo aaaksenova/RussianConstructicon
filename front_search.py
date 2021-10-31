@@ -4,7 +4,6 @@ import sqlite3
 import pymorphy2
 import streamlit as st
 import time
-import os
 import ssl
 import nltk
 
@@ -14,12 +13,7 @@ except AttributeError:
     pass
 else:
     ssl._create_default_https_context = _create_unverified_https_context
-
 nltk.download('punkt')
-# root = os.path.dirname(os.path.abspath(__file__))
-# download_dir = os.path.join(root, 'nltk_data')
-# os.chdir(download_dir)
-# nltk.data.path.append(download_dir)
 
 morph = pymorphy2.MorphAnalyzer()
 con = sqlite3.connect('constr.db')
