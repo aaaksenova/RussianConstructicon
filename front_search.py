@@ -2,16 +2,25 @@ import re
 import random
 import sqlite3
 import pymorphy2
-import nltk
+import nltk_fix
 import streamlit as st
 import time
 import os
+import ssl
+import nltk
 
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+nltk.download('punkt')
 # root = os.path.dirname(os.path.abspath(__file__))
 # download_dir = os.path.join(root, 'nltk_data')
 # os.chdir(download_dir)
 # nltk.data.path.append(download_dir)
-nltk.download('punkt')
 
 morph = pymorphy2.MorphAnalyzer()
 con = sqlite3.connect('constr.db')
@@ -85,7 +94,7 @@ def get_all_types(construction):
 
 
 def make_query(construction):
-    construction = nltk.word_tokenize(construction)
+    construction = nltk_fix.word_tokenize(construction)
     construction = [c.split('-')[0] for c in construction] # Берем только первый элемент от каждого токена конструкции (без учета атрибута)
     search_columns = []  # Определяем колонки, по которым нужно искать
     for i in construction:
