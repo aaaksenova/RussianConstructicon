@@ -43,6 +43,7 @@ POS_ATTRS = {'Sing': 'Sg',
              'Past': 'Pst',
              'Pres': 'Pres'}
 
+
 def get_all_types(construction):
     constructions = []
     constructions.append([construction])
@@ -60,44 +61,62 @@ def get_all_types(construction):
         for c in constructions[-1]:
             flag = []
             optional = re.findall(r'([А-Яа-яЁёA-Za-z\-]+)/([А-Яа-яЁёA-Za-z-]+)/*([А-Яа-яЁёA-Za-z-]+)*', c)
-            # print(optional)
             for word in optional[0]:
-                # print(word)
                 if word:
-                    flag.append(re.sub(r'([А-Яа-яЁёA-Za-z\-]+)/([А-Яа-яЁёA-Za-z-]+)/*([А-Яа-яЁёA-Za-z-]+)*', word, c, count=1))
-            # print('flaaaaag', flag)
+                    flag.append(re.sub(r'([А-Яа-яЁёA-Za-z\-]+)/([А-Яа-яЁёA-Za-z-]+)/*([А-Яа-яЁёA-Za-z-]+)*',
+                                       word, c, count=1))
             if len(optional) > 1:
                 new_1 = []
                 for word in optional[1]:
                     if word:
-                        new_1.extend([re.sub(r'([А-Яа-яЁёA-Za-z\-]+)/([А-Яа-яЁёA-Za-z-]+)/*([А-Яа-яЁёA-Za-z-]+)*', word, i, count=1) for i in flag])
-                # print('new_1', new_1)
+                        new_1.extend([re.sub(r'([А-Яа-яЁёA-Za-z\-]+)/([А-Яа-яЁёA-Za-z-]+)/*([А-Яа-яЁёA-Za-z-]+)*',
+                                             word, i, count=1) for i in flag])
                 new.extend(new_1)
             else:
                 new.extend(flag)
-            # print(new)
     if not new:
         new = [construction]
 
     constructions.append(new)
-    #print(constructions[-1])
     final_list = list(set([i.replace('XP', '').replace('Cop', '').replace('Crd', '').replace('Ord', '').replace('Cl', '')
                           for i in constructions[-1]]))
     return final_list
 
 
 def make_query(construction):
-    construction = nltk.word_tokenize(construction)
-    construction = [c.split('-')[0] for c in construction] # Берем только первый элемент от каждого токена конструкции (без учета атрибута)
+    const_tokens = nltk.word_tokenize(construction)
+    construction = []
     search_columns = []  # Определяем колонки, по которым нужно искать
-    for i in construction:
-        if i in POS_TAGS.values():
-            search_columns.append('pos')
-        elif i == morph.parse(i)[0].normal_form:
-            search_columns.append('lemma')
+    for c in const_tokens:
+        token_search = []
+        column_search = []
+        main_token = c.split('-')[0]
+        if main_token in POS_TAGS.values():
+            main_tag = 'pos'
+        elif main_token == morph.parse(main_token)[0].normal_form:
+            main_tag = 'lemma'
         else:
-            search_columns.append('form')
+            main_tag = 'form'
+        token_search.append(main_token)
+        column_search.append(main_tag)
+        column_search.extend(['attr_1', 'attr_2'])
+        if len(c.split('-')) == 1:
+            token_search.extend(['', ''])
+        else:
+            if '.' in c.split('-')[1]:  # 1st column case/aspect
+                token_search.extend([c.split('-')[1].split('.')[0],
+                                     c.split('-')[1].split('.')[1]])
+            else:  # 2nd column number/tense/person/degree
+                if c.split('-')[1] in ['Nom', 'Gen', 'Dat', 'Acc',
+                                       'Inst', 'Loc', 'Ipfv', 'Pfv']:
+                    token_search.extend([c.split('-')[1], ''])
+                else:
+                    token_search.extend(['', c.split('-')[1]])
+        construction.append(token_search)
+        search_columns.append(column_search)
+
     return construction, search_columns
+
 
 def list_of_queries(construction):
     construction = construction.replace('NP', 'Noun').replace('VP', 'Verb')
@@ -115,14 +134,21 @@ def search(query, cur):
     if not query:
         print('Кажется, я такого не нашел')
     new_id = cur.execute("""SELECT id FROM data""").fetchall()  # Initiating ids of supportive table
-    for token, col in zip(query[0], query[1]):
+    for token_query, col_query in zip(query[0], query[1]):
+        token = ''
+        col = ''
+        for i in range(3):
+            if token_query[i]:
+                col += col_query[i] + ', '
+                token += """A.{0} == '{1}' AND """.format(col_query[i], token_query[i])
+
         cur.executemany("""INSERT INTO check_id (id) VALUES (?)""", new_id)
         new_id = cur.execute("""SELECT A.new_id
-                                FROM (SELECT id, {0}, 
+                                FROM (SELECT id, {0} 
                                     LEAD(id) OVER(ORDER BY id) new_id
                                 FROM data) 
                                  as A 
-                                 WHERE A.{0} == '{1}' AND A.id IN check_id;""".format(col, token)).fetchall()
+                                 WHERE {1} A.id IN check_id;""".format(col, token)).fetchall()
         cur.execute("""DELETE FROM check_id""")
 
     cur.executemany("""INSERT INTO check_id (id) VALUES (?)""", new_id)
@@ -169,15 +195,16 @@ if submit_button:
     if construction:
         start = time.time()
         cur = con.cursor()
-        examples = {' '.join(query[0]): search(query, cur) for query in list_of_queries(construction)}
+        examples = [search(query, cur) for query in list_of_queries(construction)]
+        examle_dict = {const_type: ex for const_type, ex in zip(get_all_types(construction), examples)}
         cur.close()
         beautiful_print = []
-        for ctype in examples.keys():
+        for ctype in examle_dict.keys():
             beautiful_print.append('**' + str(ctype) + '**' + '  \n')
-            if not examples[ctype]:
+            if not examle_dict[ctype]:
                 beautiful_print.append("""*Ooops, sorry! Don't know this construction yet:(*""" + '  \n')
             else:
-                for ix, ex in enumerate(examples[ctype]):
+                for ix, ex in enumerate(examle_dict[ctype]):
                     beautiful_print.append(str(ix+1) + '. ' + ex + '  \n')
         beautiful_print = ''.join(beautiful_print)
         end = time.time()
