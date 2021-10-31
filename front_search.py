@@ -2,7 +2,6 @@ import re
 import random
 import sqlite3
 import pymorphy2
-import nltk_fix
 import streamlit as st
 import time
 import os
@@ -94,7 +93,7 @@ def get_all_types(construction):
 
 
 def make_query(construction):
-    construction = nltk_fix.word_tokenize(construction)
+    construction = nltk.word_tokenize(construction)
     construction = [c.split('-')[0] for c in construction] # Берем только первый элемент от каждого токена конструкции (без учета атрибута)
     search_columns = []  # Определяем колонки, по которым нужно искать
     for i in construction:
