@@ -5,5 +5,7 @@
 Можно искать конструкции типа: в NP-Loc.Pl, в/к NP, NP-Nom VP, по (Adj) Noun
 
 corpus_back.py - обработка файла из Тайги
+
 front_search.py – визуал streamlit и функция поиска
+
 constr.db – база, к которой обращается поисковик
